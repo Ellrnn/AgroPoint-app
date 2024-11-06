@@ -1,5 +1,11 @@
 import { useState, useEffect } from "react";
-import * as Location from "expo-location";
+
+import {
+  requestForegroundPermissionsAsync,
+  type LocationSubscription,
+  watchPositionAsync,
+  Accuracy,
+} from "expo-location";
 
 export type LocationType =
   | {
@@ -13,20 +19,31 @@ export function useLocation() {
   const [location, setLocation] = useState<LocationType>({ status: "waiting" });
 
   useEffect(() => {
+    let location: LocationSubscription;
     (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
+      const { status } = await requestForegroundPermissionsAsync();
       if (status !== "granted") {
         setLocation({ status: "denied" });
         return;
       }
 
-      const location = await Location.getCurrentPositionAsync({});
-      setLocation({
-        status: "granted",
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-      });
+      location = await watchPositionAsync(
+        {
+          accuracy: Accuracy.Highest,
+          timeInterval: 100,
+        },
+        (loc) => {
+          setLocation({
+            status: "granted",
+            latitude: loc.coords.latitude,
+            longitude: loc.coords.longitude,
+          });
+        }
+      );
     })();
+    return () => {
+      return location.remove();
+    };
   }, []);
 
   return location;
